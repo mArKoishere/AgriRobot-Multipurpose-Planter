@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AgriRobot — Multipurpose Planter</title>
+<style>
+  :root{
+    --soil:#3d2b1f;
+    --soil-light:#6b4a30;
+    --navy:#161f38;
+    --teal:#4f9c9c;
+    --teal-light:#7fc4c4;
+    --red:#c0392b;
+    --cyan:#4fc7d9;
+    --leaf:#5a9451;
+    --leaf-dark:#3f6b39;
+    --sand:#e8dcc3;
+    --panel:#12182b;
+    --panel-2:#1c2540;
+    --ink:#eef1ea;
+    --dim:#9aa4c2;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; height:100%; background:var(--panel); color:var(--ink);
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif; overflow:hidden;}
+  #app{display:flex; flex-direction:column; height:100vh; height:100dvh;}
+
+  header{
+    padding:10px 14px 8px; background:linear-gradient(180deg,#0f1526,#12182b);
+    border-bottom:1px solid #2a3252; flex:0 0 auto;
+  }
+  header h1{
+    margin:0; font-size:15px; letter-spacing:0.5px; color:var(--teal-light);
+    font-family:'Courier New', monospace; font-weight:700;
+  }
+  header p{margin:2px 0 0; font-size:11px; color:var(--dim);}
+
+  #stage{position:relative; flex:1 1 auto; min-height:0; background:#0b0f1c;}
+  #c{position:absolute; inset:0; width:100%; height:100%; display:block; touch-action:none;}
+
+  #hud{
+    position:absolute; top:8px; left:8px; right:8px; display:flex; justify-content:space-between;
+    align-items:flex-start; pointer-events:none; gap:8px;
+  }
+  #status{
+    pointer-events:auto; background:rgba(15,20,38,0.85); border:1px solid #2f3a63;
+    border-radius:8px; padding:6px 10px; font-family:'Courier New', monospace;
+    font-size:11px; color:var(--teal-light); max-width:62%; backdrop-filter:blur(2px);
+  }
+  #status .line2{color:var(--dim); font-size:10px; margin-top:2px;}
+  #infoBtn{
+    pointer-events:auto; background:rgba(15,20,38,0.85); border:1px solid #2f3a63;
+    color:var(--ink); border-radius:8px; padding:6px 10px; font-size:11px; cursor:pointer;
+  }
+
+  #steps{
+    position:absolute; bottom:8px; left:8px; right:8px; display:flex; gap:4px;
+    justify-content:center; pointer-events:none;
+  }
+  .chip{
+    flex:1; max-width:110px; text-align:center; padding:5px 3px; border-radius:6px;
+    background:rgba(15,20,38,0.85); border:1px solid #2f3a63; font-size:9.5px; color:var(--dim);
+    font-family:'Courier New', monospace; transition:all .25s ease;
+  }
+  .chip b{display:block; font-size:11px; color:var(--ink);}
+  .chip.active{background:var(--teal); border-color:var(--teal-light); color:#06231f;}
+  .chip.active b{color:#06231f;}
+  .chip.done{background:#25523f; border-color:var(--leaf); color:var(--sand);}
+
+  #legend{
+    position:absolute; inset:0; background:rgba(8,11,20,0.92); display:none;
+    align-items:center; justify-content:center; padding:20px; z-index:10;
+  }
+  #legend.open{display:flex;}
+  #legendCard{
+    background:var(--panel-2); border:1px solid #2f3a63; border-radius:12px; padding:16px 18px;
+    max-width:360px; width:100%; max-height:80%; overflow:auto;
+  }
+  #legendCard h2{margin:0 0 8px; font-size:14px; color:var(--teal-light);}
+  #legendCard ul{list-style:none; margin:0; padding:0;}
+  #legendCard li{display:flex; gap:8px; align-items:flex-start; font-size:12px; margin-bottom:9px; line-height:1.35;}
+  .swatch{width:12px; height:12px; border-radius:3px; margin-top:2px; flex:0 0 auto;}
+  #legendCard p.order{font-size:11px; color:var(--dim); margin-top:10px; line-height:1.5;}
+  #closeLegend{
+    margin-top:10px; width:100%; padding:8px; border-radius:8px; border:1px solid #3a4570;
+    background:var(--teal); color:#06231f; font-weight:700; font-size:12px; cursor:pointer;
+  }
+
+  #controls{
+    flex:0 0 auto; background:linear-gradient(180deg,#12182b,#0d1122);
+    border-top:1px solid #2a3252; padding:10px 12px 12px; display:flex; gap:10px; align-items:center;
+  }
+  #dpad{display:grid; grid-template-columns:40px 40px 40px; grid-template-rows:36px 36px;
+    gap:4px; flex:0 0 auto;}
+  #dpad button{
+    background:var(--panel-2); border:1px solid #3a4570; color:var(--ink); border-radius:8px;
+    font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  #dpad button:active{background:var(--teal); color:#06231f;}
+  #turnL{grid-column:1; grid-row:1;}
+  #fwd{grid-column:2; grid-row:1;}
+  #turnR{grid-column:3; grid-row:1;}
+  #back{grid-column:2; grid-row:2;}
+
+  #midControls{flex:1 1 auto; display:flex; flex-direction:column; gap:6px; min-width:0;}
+  .toggleRow{display:flex; align-items:center; gap:6px; font-size:11px; color:var(--dim);}
+  .toggleRow input{width:14px; height:14px;}
+  #runBtn{
+    background:linear-gradient(180deg,var(--leaf),var(--leaf-dark)); border:1px solid #3f7a3a;
+    color:#f4fff2; font-weight:700; font-size:13px; padding:9px 6px; border-radius:9px;
+    cursor:pointer; letter-spacing:0.3px;
+  }
+  #runBtn:disabled{opacity:0.5;}
+  #autoBtn{
+    background:linear-gradient(180deg,#3d6fa8,#274a78); border:1px solid #4a7fc0;
+    color:#eaf3ff; font-weight:700; font-size:12px; padding:8px 6px; border-radius:9px;
+    cursor:pointer; letter-spacing:0.3px;
+  }
+  #autoBtn.running{background:linear-gradient(180deg,#a83d3d,#782727); border-color:#c05050;}
+  #resetBtn{
+    background:var(--panel-2); border:1px solid #3a4570; color:var(--dim); font-size:10px;
+    padding:5px; border-radius:7px; cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🌾 AGRIROBOT — MULTIPURPOSE PLANTER</h1>
+    <p>Drag the field to look around · pinch/scroll to zoom · drive with the pad · run the planting cycle</p>
+  </header>
+
+  <div id="stage">
+    <canvas id="c"></canvas>
+    <div id="hud">
+      <div id="status">
+        <div class="line1" id="statusLine">STANDBY — ready to drive</div>
+        <div class="line2" id="statusLine2">Position the robot, then tap RUN CYCLE</div>
+      </div>
+      <div id="infoBtn">ℹ️ Parts</div>
+    </div>
+    <div id="steps">
+      <div class="chip" data-step="1"><b>①</b>Cut grass</div>
+      <div class="chip" data-step="2"><b>②</b>Drill hole</div>
+      <div class="chip" data-step="3"><b>③</b>Drop seed</div>
+      <div class="chip" data-step="4"><b>④</b>Cover dirt</div>
+      <div class="chip" data-step="5"><b>⑤</b>Water</div>
+    </div>
+    <div id="legend">
+      <div id="legendCard">
+        <h2>AgriRobot — Part guide</h2>
+        <ul>
+          <li><span class="swatch" style="background:#4f9c9c"></span><div><b>Roof / solar panels</b> — powers the robot; batteries and control electronics sit underneath inside the roof.</div></li>
+          <li><span class="swatch" style="background:#161f38"></span><div><b>Main body</b> — internal storage room for water and seed reserves.</div></li>
+          <li><span class="swatch" style="background:#5f6b82"></span><div><b>Front sensor</b> — ultrasonic "eyes" that watch the ground ahead and stop the robot before it drives into an obstacle.</div></li>
+          <li><span class="swatch" style="background:#c0392b"></span><div><b>Drill units</b> — two augers that each bore their own planting hole.</div></li>
+          <li><span class="swatch" style="background:#6fbf4f"></span><div><b>Grass cutter</b> — green struts hold a row of spikes that mow grass under the front, used only when the ground is grassy (toggle it off if not needed).</div></li>
+          <li><span class="swatch" style="background:#4fc7d9"></span><div><b>Sprinklers</b> — two rear nozzles that water the planted spot.</div></li>
+          <li><span class="swatch" style="background:#5a9451"></span><div><b>Dirt coverer</b> — rear panel that folds down to cover the seed.</div></li>
+          <li><span class="swatch" style="background:#8d95a0"></span><div><b>Seed outlets</b> — four droppers in a 2×2 grid; each left/right pair feeds seed into its matching hole.</div></li>
+        </ul>
+        <p class="order">Planting order (front to back, matching the real layout): cutter → drills → seed outlets → cover flap → sprinklers. In Continuous Plant Mode the robot never stops — each station works on the ground as it passes underneath, just like a real seeder.</p>
+        <button id="closeLegend">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls">
+    <div id="dpad">
+      <button id="turnL">◀</button>
+      <button id="fwd">▲</button>
+      <button id="turnR">▶</button>
+      <button id="back">▼</button>
+    </div>
+    <div id="midControls">
+      <label class="toggleRow"><input type="checkbox" id="cutterChk" checked> Grass cutter needed</label>
+      <label class="toggleRow"><input type="checkbox" id="grassChk"> 🌱 Spawn grass patch</label>
+      <label class="toggleRow"><input type="checkbox" id="obstacleChk"> 🪨 Spawn obstacle</label>
+      <button id="runBtn">▶ RUN PLANTING CYCLE</button>
+      <button id="autoBtn">🚜 CONTINUOUS PLANT MODE</button>
+      <button id="resetBtn">Reset field</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ---------- basic setup ---------- */
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xbfd8e0);
+scene.fog = new THREE.Fog(0xbfd8e0, 24, 70);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+
+/* lights */
+scene.add(new THREE.HemisphereLight(0xdfefff, 0x4a3a2a, 0.65));
+const sun = new THREE.DirectionalLight(0xfff2d6, 1.0);
+sun.position.set(8, 16, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left = -12; sun.shadow.camera.right = 12;
+sun.shadow.camera.top = 12; sun.shadow.camera.bottom = -12;
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 40;
+sun.shadow.bias = -0.002;
+scene.add(sun);
+scene.add(new THREE.AmbientLight(0xffffff, 0.3));
+
+/* ---------- ground ---------- */
+function dirtTexture(){
+  const s = 256;
+  const cv = document.createElement('canvas'); cv.width=cv.height=s;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#6b4a30'; ctx.fillRect(0,0,s,s);
+  for(let i=0;i<3000;i++){
+    const x=Math.random()*s, y=Math.random()*s, r=Math.random()*1.6;
+    ctx.fillStyle = Math.random()>0.5 ? 'rgba(60,40,25,0.35)' : 'rgba(140,105,70,0.3)';
+    ctx.beginPath(); ctx.arc(x,y,r,0,7); ctx.fill();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(10,10);
+  return tex;
+}
+const groundGeo = new THREE.PlaneGeometry(160,160);
+const groundMat = new THREE.MeshStandardMaterial({map:dirtTexture(), roughness:1});
+const ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.receiveShadow = true;
+scene.add(ground);
+
+/* soft contact blob under the robot — guarantees a grounded look from any angle */
+function blobShadowTexture(){
+  const s=128; const cv=document.createElement('canvas'); cv.width=cv.height=s;
+  const ctx=cv.getContext('2d');
+  const g = ctx.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2);
+  g.addColorStop(0,'rgba(0,0,0,0.55)'); g.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,s,s);
+  return new THREE.CanvasTexture(cv);
+}
+const blob = new THREE.Mesh(
+  new THREE.PlaneGeometry(6.4,6.4),
+  new THREE.MeshBasicMaterial({map:blobShadowTexture(), transparent:true, depthWrite:false})
+);
+blob.rotation.x = -Math.PI/2;
+blob.position.y = 0.012;
+scene.add(blob);
+
+/* subtle furrow rows for atmosphere */
+for(let i=-6;i<=6;i++){
+  const rowGeo = new THREE.PlaneGeometry(160, 0.15);
+  const rowMat = new THREE.MeshStandardMaterial({color:0x4a3320, roughness:1});
+  const row = new THREE.Mesh(rowGeo, rowMat);
+  row.rotation.x = -Math.PI/2;
+  row.position.set(0, 0.005, i*2.4);
+  scene.add(row);
+}
+
+/* ---------- solar panel texture ---------- */
+function solarTexture(){
+  const s = 256;
+  const cv = document.createElement('canvas'); cv.width=s; cv.height=Math.round(s*1.4);
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#12406b'; ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.strokeStyle = 'rgba(180,210,230,0.6)'; ctx.lineWidth = 2;
+  const cols=6, rows=8;
+  for(let c=0;c<=cols;c++){ ctx.beginPath(); ctx.moveTo(c*cv.width/cols,0); ctx.lineTo(c*cv.width/cols,cv.height); ctx.stroke(); }
+  for(let r=0;r<=rows;r++){ ctx.beginPath(); ctx.moveTo(0,r*cv.height/rows); ctx.lineTo(cv.width,r*cv.height/rows); ctx.stroke(); }
+  ctx.strokeStyle = '#0a2540'; ctx.lineWidth = 10;
+  ctx.strokeRect(5,5,cv.width-10,cv.height-10);
+  return new THREE.CanvasTexture(cv);
+}
+
+/* ---------- roof shingle texture ---------- */
+function shingleTexture(){
+  const cv = document.createElement('canvas'); cv.width=128; cv.height=192;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#4f9c9c'; ctx.fillRect(0,0,cv.width,cv.height);
+  const rows = 12;
+  for(let r=0;r<rows;r++){
+    const y = r*(cv.height/rows);
+    ctx.fillStyle = r%2===0 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)';
+    ctx.fillRect(0,y,cv.width,cv.height/rows);
+    ctx.strokeStyle = 'rgba(20,50,50,0.35)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(cv.width,y); ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(1,3);
+  return tex;
+}
+
+/* ---------- materials ---------- */
+const M = {
+  body: new THREE.MeshStandardMaterial({color:0x161f38, roughness:0.6}),
+  roof: new THREE.MeshStandardMaterial({map:shingleTexture(), roughness:0.65}),
+  roofDark: new THREE.MeshStandardMaterial({color:0x2f6b6b, roughness:0.5}),
+  solar: new THREE.MeshStandardMaterial({map:solarTexture(), roughness:0.35, metalness:0.2}),
+  bolt: new THREE.MeshStandardMaterial({color:0x1a1a22}),
+  sensorBody: new THREE.MeshStandardMaterial({color:0x5f6b82}),
+  sensorEye: new THREE.MeshStandardMaterial({color:0xdfe6ee}),
+  red: new THREE.MeshStandardMaterial({color:0xc0392b, roughness:0.5}),
+  auger: new THREE.MeshStandardMaterial({color:0x8d95a0, metalness:0.6, roughness:0.35}),
+  cutter: new THREE.MeshStandardMaterial({color:0x6fbf4f, metalness:0.3, roughness:0.4}),
+  cyan: new THREE.MeshStandardMaterial({color:0x4fc7d9, roughness:0.4}),
+  cover: new THREE.MeshStandardMaterial({color:0x5a9451, roughness:0.6}),
+  wheel: new THREE.MeshStandardMaterial({color:0x141414, roughness:0.85}),
+  wheelHub: new THREE.MeshStandardMaterial({color:0x2b2b2b, roughness:0.7}),
+  track: new THREE.MeshStandardMaterial({color:0x0d0d0d, roughness:0.8}),
+  seed: new THREE.MeshStandardMaterial({color:0x3e2a17, roughness:0.8}),
+  mound: new THREE.MeshStandardMaterial({color:0x5a3f28, roughness:1}),
+  moundWet: new THREE.MeshStandardMaterial({color:0x3a2818, roughness:0.7}),
+  hole: new THREE.MeshStandardMaterial({color:0x1a120b, roughness:1}),
+  sprout: new THREE.MeshStandardMaterial({color:0x6fbf4f}),
+  water: new THREE.MeshStandardMaterial({color:0x8fe0f0, transparent:true, opacity:0.85})
+};
+
+/* ---------- build robot ---------- */
+const robot = new THREE.Group();
+scene.add(robot);
+
+const W=4, H=2.4, D=4.4;          // body width, height, depth
+const wheelR = 0.55;
+const bodyBottomY = wheelR + 0.55;
+const bodyTopY = bodyBottomY + H;
+
+// body
+const bodyGeo = new THREE.BoxGeometry(W,H,D);
+const body = new THREE.Mesh(bodyGeo, M.body);
+body.position.y = bodyBottomY + H/2;
+body.castShadow = true; body.receiveShadow = true;
+robot.add(body);
+
+// roof (two gable panels) — shaped like a real house roof, with solar panels mounted on top
+const panelLen=2.9, panelDepth=D+0.5, angle=0.66;
+function makeRoofPanel(sign){
+  // teal structural plate (the "roof" itself) — generous overhang beyond the body
+  const geo = new THREE.BoxGeometry(panelLen,0.14,panelDepth);
+  const m = new THREE.Mesh(geo, M.roof);
+  m.rotation.z = -sign*angle;
+  m.position.set(sign*(panelLen/2)*Math.cos(angle)*0.98, bodyTopY + (panelLen/2)*Math.sin(angle)*0.98, 0);
+  m.castShadow = true;
+  robot.add(m);
+
+  // eave trim lip along the low outer edge, like a fascia board on a house roof
+  const eave = new THREE.Mesh(new THREE.BoxGeometry(0.1,0.22,panelDepth), M.roofDark);
+  eave.position.set(sign*(panelLen/2-0.02), -0.02, 0);
+  m.add(eave);
+
+  // inset solar module, noticeably smaller than the plate so a wide teal roof margin shows around it
+  const moduleLen = panelLen*0.58, moduleDepth = panelDepth*0.66;
+  const modGeo = new THREE.BoxGeometry(moduleLen,0.03,moduleDepth);
+  const mod = new THREE.Mesh(modGeo, M.solar);
+  mod.position.set(0.05,0.09,0);
+  mod.castShadow = true;
+  m.add(mod); // child of the plate so it inherits the tilt automatically
+
+  // 4 corner bolts on the module, like the reference top-view
+  const bx = moduleLen/2-0.18, bz = moduleDepth/2-0.22;
+  [[-bx,-bz],[bx,-bz],[-bx,bz],[bx,bz]].forEach(([x,z])=>{
+    const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.05,10), M.bolt);
+    bolt.position.set(x,0.032,z);
+    mod.add(bolt);
+  });
+  return m;
+}
+makeRoofPanel(-1); makeRoofPanel(1);
+// ridge cap + bolts
+const ridgeY = bodyTopY + panelLen*Math.sin(angle)*0.98 + 0.05;
+const ridgeGeo = new THREE.BoxGeometry(0.26,0.16,panelDepth);
+robot.add(new THREE.Mesh(ridgeGeo, M.roofDark)).position.set(0, ridgeY-0.05, 0);
+for(let i=-2;i<=2;i++){
+  const b = new THREE.Mesh(new THREE.SphereGeometry(0.07,8,8), M.bolt);
+  b.position.set(0, ridgeY+0.03, i*(panelDepth/5.2));
+  robot.add(b);
+}
+// closed triangular gable ends so the roof reads as a solid peaked roof
+const halfBase = panelLen*Math.cos(angle)*0.98;
+const peakH = panelLen*Math.sin(angle)*0.98;
+const gableShape = new THREE.Shape();
+gableShape.moveTo(-halfBase, 0);
+gableShape.lineTo(0, peakH);
+gableShape.lineTo(halfBase, 0);
+gableShape.lineTo(-halfBase, 0);
+const gableGeo = new THREE.ExtrudeGeometry(gableShape, {depth:0.1, bevelEnabled:false});
+const gableFront = new THREE.Mesh(gableGeo, M.roof);
+gableFront.position.set(0, bodyTopY, -panelDepth/2);
+gableFront.castShadow = true;
+robot.add(gableFront);
+const gableBack = new THREE.Mesh(gableGeo, M.roof);
+gableBack.position.set(0, bodyTopY, panelDepth/2-0.1);
+gableBack.castShadow = true;
+robot.add(gableBack);
+// fascia trim along the low edge of each gable end, like eave trim on a house
+const fasciaGeo = new THREE.BoxGeometry(halfBase*2+0.08, 0.1, 0.06);
+const fasciaFront = new THREE.Mesh(fasciaGeo, M.roofDark);
+fasciaFront.position.set(0, bodyTopY-0.02, -panelDepth/2-0.03);
+robot.add(fasciaFront);
+const fasciaBack = new THREE.Mesh(fasciaGeo, M.roofDark);
+fasciaBack.position.set(0, bodyTopY-0.02, panelDepth/2+0.03);
+robot.add(fasciaBack);
+
+// wheels + chunky tank-tread loop (blocky rubber track wrapping both wheels, like the reference crawler track)
+const wheels = [];
+const wheelSpacing = D-1.8; // distance between the two axles on each side
+const TRACK_OUTER = wheelR+0.24;   // outer radius of the rubber track around each wheel
+const TRACK_INNER = wheelR-0.06;   // inner radius (hugs the wheel closely)
+const TRACK_WIDTH = 0.56;          // width of the track along the robot's side (X axis)
+function stadiumShape(r){
+  const halfSpan = wheelSpacing/2;
+  const s = new THREE.Shape();
+  s.moveTo(-halfSpan, wheelR+r);
+  s.lineTo(halfSpan, wheelR+r);
+  s.absarc(halfSpan, wheelR, r, Math.PI/2, -Math.PI/2, true);
+  s.lineTo(-halfSpan, wheelR-r);
+  s.absarc(-halfSpan, wheelR, r, -Math.PI/2, Math.PI/2, true);
+  return s;
+}
+function makeWheelPair(x){
+  // two road wheels, mostly hidden behind the track — just a hub cap visible on the outer face
+  [-wheelSpacing/2, wheelSpacing/2].forEach(z=>{
+    const g = new THREE.Group();
+    const tire = new THREE.Mesh(new THREE.CylinderGeometry(wheelR,wheelR,TRACK_WIDTH*0.75,20), M.wheel);
+    tire.rotation.z = Math.PI/2; tire.castShadow = true;
+    g.add(tire);
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.2,0.2,TRACK_WIDTH*0.8,10), M.wheelHub);
+    hub.rotation.z = Math.PI/2;
+    g.add(hub);
+    g.position.set(x, wheelR, z);
+    robot.add(g);
+    wheels.push(g);
+  });
+
+  // solid chunky track body — a stadium (rounded-rectangle) ring extruded for thickness
+  const outerShape = stadiumShape(TRACK_OUTER);
+  outerShape.holes.push(stadiumShape(TRACK_INNER));
+  const trackGeo = new THREE.ExtrudeGeometry(outerShape, {depth:TRACK_WIDTH, bevelEnabled:false, curveSegments:16});
+  const trackMesh = new THREE.Mesh(trackGeo, M.track);
+  trackMesh.rotation.y = Math.PI/2;
+  trackMesh.position.set(x-TRACK_WIDTH/2, 0, 0);
+  trackMesh.castShadow = true;
+  robot.add(trackMesh);
+
+  // tread lugs — evenly spaced chevron-style blocks along the ground-facing and top runs
+  const halfSpan = wheelSpacing/2;
+  const lugSpacing = 0.32;
+  const lugCount = Math.floor((halfSpan*2)/lugSpacing);
+  for(let i=0;i<=lugCount;i++){
+    const z = -halfSpan + i*lugSpacing;
+    [TRACK_OUTER+0.02, -(TRACK_OUTER+0.02)].forEach(yOff=>{
+      const lug = new THREE.Mesh(new THREE.BoxGeometry(TRACK_WIDTH+0.06,0.09,0.14), M.track);
+      lug.position.set(x, wheelR+yOff, z);
+      lug.castShadow = true;
+      robot.add(lug);
+    });
+  }
+}
+makeWheelPair(-(W/2+0.05));
+makeWheelPair( (W/2+0.05));
+
+// sensor (front, -z)
+const sensorMidY = bodyBottomY + H*0.42;
+const sensorBody = new THREE.Mesh(new THREE.BoxGeometry(1.1,0.6,0.18), M.sensorBody);
+sensorBody.position.set(0, sensorMidY, -D/2-0.08);
+sensorBody.castShadow = true;
+robot.add(sensorBody);
+[-0.27,0.27].forEach(x=>{
+  const eye = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.22,0.12,16), M.sensorEye);
+  eye.rotation.x = Math.PI/2;
+  eye.position.set(x, sensorMidY, -D/2-0.16);
+  robot.add(eye);
+});
+
+// drill units (front, flank the sensor, lower) — housing mounted low so the bit's tip actually reaches the ground
+const drills = [];
+const DRILL_BOX_Y = bodyBottomY - 0.15; // low mount, close to the ground like a real drill unit
+const AUGER_HALF_H = 0.425; // half of the cone's 0.85 height
+const AUGER_REST_Y = AUGER_HALF_H + 0.12; // tip sits just above soil, nearly touching when idle
+[-1.15,1.15].forEach(x=>{
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.9,0.75,0.95), M.red);
+  box.position.set(x, DRILL_BOX_Y, -D/2-0.42);
+  box.castShadow = true;
+  robot.add(box);
+  const auger = new THREE.Mesh(new THREE.ConeGeometry(0.22,0.85,10), M.auger);
+  auger.rotation.x = Math.PI; // tip down
+  auger.position.set(x, AUGER_REST_Y, -D/2-0.42);
+  auger.castShadow = true;
+  robot.add(auger);
+  drills.push(auger);
+});
+
+// grass cutter — crossbar + spiky roller, mounted flush under the body front (matches reference design)
+const cutterGroup = new THREE.Group();
+cutterGroup.position.set(0, wheelR*0.55, -D/2-1.0);
+robot.add(cutterGroup);
+
+const cutterBase = new THREE.Mesh(new THREE.BoxGeometry(2.6,0.16,0.7), M.cover);
+cutterBase.position.y = 0.28;
+cutterBase.castShadow = true;
+cutterGroup.add(cutterBase);
+
+const cutterSpikes = new THREE.Group();
+cutterGroup.add(cutterSpikes);
+const spikeCount = 9;
+for(let i=0;i<spikeCount;i++){
+  const spike = new THREE.Mesh(new THREE.ConeGeometry(0.16,0.5,8), M.cutter);
+  spike.rotation.x = Math.PI;
+  spike.position.set(-0.95 + i*(1.9/(spikeCount-1)), 0, 0.05);
+  spike.castShadow = true;
+  cutterSpikes.add(spike);
+}
+
+// seed outlet ring (bottom-front)
+const seedCenter = {x:0, y:bodyBottomY-0.08, z:-D/2+1.1};
+const seedOffsets = [{x:-0.32,z:-0.28},{x:0.32,z:-0.28},{x:-0.32,z:0.28},{x:0.32,z:0.28}];
+const seedOutlets = seedOffsets.map(o=>{
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.16,0.045,8,14), M.auger);
+  ring.rotation.x = Math.PI/2;
+  ring.position.set(seedCenter.x+o.x, seedCenter.y, seedCenter.z+o.z);
+  robot.add(ring);
+  return ring;
+});
+
+// sprinklers (back, +z) — ridged accordion-hose nozzle like the reference design
+const sprinklers = [];
+[-1.1,1.1].forEach(x=>{
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.32,0.4,14), M.cyan);
+  base.position.set(x, bodyTopY-0.75, D/2+0.25);
+  base.castShadow = true;
+  robot.add(base);
+  // ridged/accordion segments tapering outward
+  for(let i=0;i<3;i++){
+    const r = 0.24 - i*0.045;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(r,0.06,8,16), M.cyan);
+    ring.rotation.x = Math.PI/2;
+    ring.position.set(x, bodyTopY-0.62+i*0.02, D/2+0.42+i*0.13);
+    ring.castShadow = true;
+    robot.add(ring);
+  }
+  const nozzle = new THREE.Mesh(new THREE.SphereGeometry(0.13,10,10), M.cyan);
+  nozzle.position.set(x, bodyTopY-0.56, D/2+0.85);
+  robot.add(nozzle);
+  sprinklers.push(nozzle);
+});
+
+// dirt coverer (back, hinged flap)
+const coverPanel = new THREE.Mesh(new THREE.BoxGeometry(2.6,1.0,0.1), M.cover);
+const COVER_HALF_H = 0.5; // half of the panel's 1.0 height
+const COVER_DOWN_Y = COVER_HALF_H;        // exact height so the panel's bottom edge touches y=0
+const COVER_REST_Y = COVER_DOWN_Y + 0.15; // just lifted off the soil, nearly touching when idle
+coverPanel.position.set(0, COVER_REST_Y, D/2+0.15);
+coverPanel.castShadow = true;
+robot.add(coverPanel);
+
+/* ---------- optional grass patch ---------- */
+const grassMat = new THREE.MeshStandardMaterial({color:0x4a9c3f, side:THREE.DoubleSide, roughness:0.8});
+function makeGrassTuft(){
+  const g = new THREE.Group();
+  const bladeGeo = new THREE.PlaneGeometry(0.12,1.4);
+  bladeGeo.translate(0,0.7,0); // pivot at the base so it grows up from the ground
+  for(let i=0;i<6;i++){
+    const p = new THREE.Mesh(bladeGeo, grassMat);
+    p.position.y = 0;
+    p.rotation.y = i*(Math.PI/3) + Math.random()*0.4;
+    p.rotation.x = (Math.random()-0.5)*0.25;
+    p.rotation.z = (Math.random()-0.5)*0.25;
+    g.add(p);
+  }
+  const s = 1.1+Math.random()*0.7;
+  g.scale.setScalar(s);
+  g.userData.baseScale = s;
+  return g;
+}
+const grassGroup = new THREE.Group();
+scene.add(grassGroup);
+function spawnGrassPatch(){
+  while(grassGroup.children.length) grassGroup.remove(grassGroup.children[0]);
+  for(let i=0;i<360;i++){
+    const tuft = makeGrassTuft();
+    tuft.position.set(
+      robot.position.x + (Math.random()-0.5)*11,
+      0,
+      robot.position.z + (Math.random()-0.3)*11
+    );
+    tuft.rotation.y = Math.random()*Math.PI*2;
+    grassGroup.add(tuft);
+  }
+}
+function clearGrassPatch(){
+  while(grassGroup.children.length) grassGroup.remove(grassGroup.children[0]);
+}
+
+/* ---------- optional obstacle (for testing the ultrasonic sensor) ---------- */
+const obstacleMat = new THREE.MeshStandardMaterial({color:0x7a7468, roughness:0.95});
+const obstacleGroup = new THREE.Group();
+scene.add(obstacleGroup);
+function spawnObstacle(){
+  while(obstacleGroup.children.length) obstacleGroup.remove(obstacleGroup.children[0]);
+  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.65,0), obstacleMat);
+  const spot = robot.localToWorld(new THREE.Vector3(0,0,-7)); // fixed distance straight ahead
+  rock.position.set(spot.x, 0.45, spot.z);
+  rock.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+  rock.castShadow = true;
+  obstacleGroup.add(rock);
+}
+function clearObstacle(){
+  while(obstacleGroup.children.length) obstacleGroup.remove(obstacleGroup.children[0]);
+}
+// true if any obstacle sits within sensor range, directly ahead of the robot
+function obstacleDetected(){
+  if(!obstacleGroup.children.length) return false;
+  robot.updateMatrixWorld();
+  const inv = new THREE.Matrix4().copy(robot.matrixWorld).invert();
+  return obstacleGroup.children.some(rock=>{
+    const local = rock.position.clone().applyMatrix4(inv);
+    return local.z < -(D/2) && local.z > -(D/2 + SENSOR_RANGE) && Math.abs(local.x) < 2.2;
+  });
+}
+const SENSOR_RANGE = 3.2;
+
+/* ---------- movement ---------- */
+const move = {fwd:false, back:false, left:false, right:false};
+let speed = 0;
+const MAXSPEED = 0.09, ROT = 0.028;
+
+function setHold(el, on, off){
+  el.addEventListener('pointerdown', e=>{e.preventDefault(); on();});
+  el.addEventListener('pointerup', off); el.addEventListener('pointerleave', off);
+  el.addEventListener('pointercancel', off);
+}
+setHold(document.getElementById('fwd'), ()=>move.fwd=true, ()=>move.fwd=false);
+setHold(document.getElementById('back'), ()=>move.back=true, ()=>move.back=false);
+setHold(document.getElementById('turnL'), ()=>move.left=true, ()=>move.left=false);
+setHold(document.getElementById('turnR'), ()=>move.right=true, ()=>move.right=false);
+
+window.addEventListener('keydown', e=>{
+  if(e.key==='ArrowUp'||e.key==='w') move.fwd=true;
+  if(e.key==='ArrowDown'||e.key==='s') move.back=true;
+  if(e.key==='ArrowLeft'||e.key==='a') move.left=true;
+  if(e.key==='ArrowRight'||e.key==='d') move.right=true;
+});
+window.addEventListener('keyup', e=>{
+  if(e.key==='ArrowUp'||e.key==='w') move.fwd=false;
+  if(e.key==='ArrowDown'||e.key==='s') move.back=false;
+  if(e.key==='ArrowLeft'||e.key==='a') move.left=false;
+  if(e.key==='ArrowRight'||e.key==='d') move.right=false;
+});
+
+let cycleRunning = false;
+
+let obstacleWarnActive = false;
+function updateMovement(){
+  if(cycleRunning) return;
+  if(move.left) robot.rotation.y += ROT;
+  if(move.right) robot.rotation.y -= ROT;
+  let target = 0;
+  if(move.fwd) target = MAXSPEED;
+  else if(move.back) target = -MAXSPEED;
+
+  const blocked = target > 0 && obstacleDetected();
+  if(blocked) target = 0;
+  if(blocked){
+    statusLine.textContent = '⚠ OBSTACLE DETECTED';
+    statusLine2.textContent = 'Sensor stopped the robot — reverse or turn to continue';
+    obstacleWarnActive = true;
+  } else if(obstacleWarnActive){
+    statusLine.textContent = 'STANDBY — ready to drive';
+    statusLine2.textContent = 'Position the robot, then tap RUN CYCLE';
+    obstacleWarnActive = false;
+  }
+
+  speed += (target-speed)*0.15;
+  if(Math.abs(speed) > 0.001){
+    robot.position.x -= Math.sin(robot.rotation.y)*speed;
+    robot.position.z -= Math.cos(robot.rotation.y)*speed;
+    wheels.forEach(w=> w.children[0].rotation.x += speed*1.4);
+    wheels.forEach(w=> w.children[1].rotation.x += speed*1.4);
+  }
+}
+
+/* ---------- camera orbit ---------- */
+let camTheta = 0.9, camPhi = 1.0, camRadius = 13;
+let dragging=false, lastX=0, lastY=0;
+canvas.addEventListener('pointerdown', e=>{dragging=true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointerup', ()=>dragging=false);
+canvas.addEventListener('pointercancel', ()=>dragging=false);
+canvas.addEventListener('pointermove', e=>{
+  if(!dragging) return;
+  const dx = e.clientX-lastX, dy = e.clientY-lastY;
+  lastX=e.clientX; lastY=e.clientY;
+  camTheta -= dx*0.006;
+  camPhi = Math.min(1.5, Math.max(0.25, camPhi - dy*0.006));
+});
+canvas.addEventListener('wheel', e=>{
+  e.preventDefault();
+  camRadius = Math.min(28, Math.max(6, camRadius + e.deltaY*0.01));
+}, {passive:false});
+let pinchDist=null;
+canvas.addEventListener('touchstart', e=>{ if(e.touches.length===2) pinchDist=Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY); }, {passive:true});
+canvas.addEventListener('touchmove', e=>{
+  if(e.touches.length===2){
+    const d = Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    if(pinchDist){ camRadius = Math.min(28, Math.max(6, camRadius - (d-pinchDist)*0.03)); }
+    pinchDist = d;
+  }
+}, {passive:true});
+
+function updateCamera(){
+  const target = new THREE.Vector3(robot.position.x, bodyTopY*0.55, robot.position.z);
+  const x = target.x + camRadius*Math.sin(camPhi)*Math.sin(camTheta);
+  const y = target.y + camRadius*Math.cos(camPhi);
+  const z = target.z + camRadius*Math.sin(camPhi)*Math.cos(camTheta);
+  camera.position.set(x,y,z);
+  camera.lookAt(target);
+}
+
+/* ---------- resize ---------- */
+function resize(){
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w,h,false);
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+}
+new ResizeObserver(resize).observe(canvas);
+
+/* ---------- planting cycle ---------- */
+const statusLine = document.getElementById('statusLine');
+const statusLine2 = document.getElementById('statusLine2');
+const chips = document.querySelectorAll('.chip');
+const runBtn = document.getElementById('runBtn');
+const cutterChk = document.getElementById('cutterChk');
+const grassChk = document.getElementById('grassChk');
+grassChk.addEventListener('change', ()=>{
+  if(grassChk.checked) spawnGrassPatch(); else clearGrassPatch();
+});
+const obstacleChk = document.getElementById('obstacleChk');
+obstacleChk.addEventListener('change', ()=>{
+  if(obstacleChk.checked) spawnObstacle(); else clearObstacle();
+});
+const fieldItems = new THREE.Group();
+scene.add(fieldItems);
+
+function tween(duration, onUpdate){
+  return new Promise(resolve=>{
+    const start = performance.now();
+    function step(now){
+      const t = Math.min((now-start)/duration, 1);
+      onUpdate(t);
+      if(t<1) requestAnimationFrame(step); else resolve();
+    }
+    requestAnimationFrame(step);
+  });
+}
+function easeInOut(t){ return t<0.5 ? 2*t*t : 1-Math.pow(-2*t+2,2)/2; }
+function setChip(n, cls){
+  chips.forEach(c=>{
+    const i = +c.dataset.step;
+    c.classList.remove('active');
+    if(cls==='done' && i<=n) c.classList.add('done');
+    if(cls==='active' && i===n){ c.classList.add('active'); c.classList.remove('done'); }
+  });
+}
+function frontSpot(dist){
+  const local = new THREE.Vector3(0,0,-dist);
+  return robot.localToWorld(local.clone());
+}
+
+async function runCycle(){
+  if(cycleRunning) return;
+  cycleRunning = true;
+  runBtn.disabled = true;
+  move.fwd=move.back=move.left=move.right=false; speed=0;
+  chips.forEach(c=>c.classList.remove('active','done'));
+
+  const holeOffset = 0.55;
+  const holeSpots = [
+    robot.localToWorld(new THREE.Vector3(-holeOffset, 0, -2.4)), // under the left auger
+    robot.localToWorld(new THREE.Vector3(holeOffset, 0, -2.4))   // under the right auger
+  ];
+
+  // STEP 1 - grass cutter
+  if(cutterChk.checked){
+    setChip(1,'active');
+    statusLine.textContent = 'STEP 1/5 — CUTTING GRASS';
+    statusLine2.textContent = 'Clearing the patch before drilling';
+    const toCut = [];
+    grassGroup.children.forEach(b=>{
+      const local = robot.worldToLocal(b.position.clone());
+      if(local.z < -(D/2+0.2) && local.z > -(D/2+2.0) && Math.abs(local.x) < W/2+0.5) toCut.push(b);
+    });
+    await tween(1100, t=>{
+      const s = 1-easeInOut(t);
+      toCut.forEach(b=> b.scale.setScalar(s*b.userData.baseScale));
+    });
+    toCut.forEach(b=> grassGroup.remove(b));
+    setChip(1,'done');
+  } else {
+    setChip(1,'done');
+  }
+
+  // STEP 2 - drill 2 holes
+  setChip(2,'active');
+  statusLine.textContent = 'STEP 2/5 — DRILLING 2 HOLES';
+  statusLine2.textContent = 'Both augers spin down into the soil';
+  const drillStartY = drills.map(d=>d.position.y);
+  await tween(1300, t=>{
+    const e = easeInOut(t);
+    drills.forEach((d,i)=>{ d.rotation.y = t*Math.PI*14; d.position.y = drillStartY[i]-(drillStartY[i]-AUGER_HALF_H)*e; });
+  });
+  const holes = holeSpots.map(hs=>{
+    const g = new THREE.Group();
+    const pit = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.22,0.14,16), M.hole);
+    pit.position.y = 0.02;
+    g.add(pit);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.32,0.07,8,16), M.mound);
+    rim.rotation.x = Math.PI/2;
+    rim.position.y = 0.05;
+    g.add(rim);
+    g.position.set(hs.x, 0, hs.z);
+    fieldItems.add(g);
+    return g;
+  });
+  await tween(400, t=>{ drills.forEach((d,i)=>{ d.position.y = AUGER_HALF_H + (drillStartY[i]-AUGER_HALF_H)*t; }); });
+  setChip(2,'done');
+
+  // STEP 3 - drop seed
+  setChip(3,'active');
+  statusLine.textContent = 'STEP 3/5 — DROPPING SEEDS';
+  statusLine2.textContent = 'Each pair of outlets feeds its own hole';
+  const seeds = seedOffsets.map(()=>{
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.12,10,10), M.seed);
+    scene.add(s); return s;
+  });
+  const seedStarts = seedOutlets.map(o=>o.getWorldPosition(new THREE.Vector3()));
+  await tween(650, t=>{
+    const e = easeInOut(t);
+    seeds.forEach((s,i)=>{
+      const holeIdx = seedOffsets[i].x < 0 ? 0 : 1; // left column -> left hole, right column -> right hole
+      const landX = holeSpots[holeIdx].x;
+      const landZ = holeSpots[holeIdx].z + seedOffsets[i].z*0.35;
+      s.position.set(
+        THREE.MathUtils.lerp(seedStarts[i].x, landX, t),
+        THREE.MathUtils.lerp(seedStarts[i].y, 0.12, e),
+        THREE.MathUtils.lerp(seedStarts[i].z, landZ, t)
+      );
+    });
+  });
+  seeds.forEach(s=>scene.remove(s));
+  setChip(3,'done');
+
+  // STEP 4 - cover dirt
+  setChip(4,'active');
+  statusLine.textContent = 'STEP 4/5 — COVERING DIRT';
+  statusLine2.textContent = 'Rear panel drops down and drags soil back over both holes';
+  const mounds = holeSpots.map((hs,i)=>{
+    const mound = new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.42,0.15,16), M.mound);
+    mound.position.set(hs.x, 0.03, hs.z);
+    mound.scale.set(0.01,0.01,0.01);
+    fieldItems.add(mound);
+    return mound;
+  });
+  await tween(360, t=>{
+    // panel drops through the first ~55% of the motion, reaching the ground right over the hole
+    const dropE = easeInOut(Math.min(1, t/0.55));
+    coverPanel.position.y = COVER_REST_Y - (COVER_REST_Y-COVER_DOWN_Y)*dropE;
+    // only once it's down and aligned with the hole does it drag the dirt over
+    const coverE = easeInOut(Math.max(0, (t-0.5)/0.5));
+    holes.forEach(h=> h.scale.setScalar(Math.max(0.01, 1-coverE)));
+    mounds.forEach(m=> m.scale.setScalar(Math.min(1, coverE)));
+  });
+  holes.forEach(h=> fieldItems.remove(h));
+  await tween(160, t=>{ coverPanel.position.y = COVER_DOWN_Y + (COVER_REST_Y-COVER_DOWN_Y)*easeInOut(t); });
+  setChip(4,'done');
+
+  // STEP 5 - water
+  setChip(5,'active');
+  statusLine.textContent = 'STEP 5/5 — WATERING';
+  statusLine2.textContent = 'Sprinklers spray the new seed';
+
+  // visible water jet/stream between each nozzle and the ground
+  const jets = sprinklers.map(n=>{
+    const start = n.getWorldPosition(new THREE.Vector3());
+    const jetLen = start.y - 0.1;
+    const jet = new THREE.Mesh(new THREE.ConeGeometry(0.05,jetLen,8,1,true), M.water.clone());
+    jet.position.set(start.x, start.y-jetLen/2, start.z);
+    jet.rotation.x = Math.PI; // taper narrow-end up, wide-end down like a spray fan
+    jet.scale.set(0.01,0.01,0.01);
+    scene.add(jet);
+    return {mesh:jet, start, jetLen};
+  });
+  // staggered droplets for extra "water coming out" detail
+  const dropBatches = sprinklers.map(()=>[0,0.18,0.36,0.54].map(()=>{
+    const d = new THREE.Mesh(new THREE.SphereGeometry(0.045,6,6), M.water.clone());
+    d.visible = false;
+    scene.add(d);
+    return d;
+  }));
+
+  await tween(1300, t=>{
+    sprinklers.forEach((n,i)=>{
+      const start = jets[i].start;
+      // jet grows out then holds, fading toward the end
+      const growT = Math.min(1, t/0.25);
+      const jetScale = easeInOut(growT);
+      jets[i].mesh.scale.set(jetScale, 1, jetScale);
+      jets[i].mesh.material.opacity = 0.55*(1-Math.max(0,(t-0.75)/0.25));
+
+      dropBatches[i].forEach((d,di)=>{
+        const delay = di*0.18;
+        let dt = (t-delay)/(0.85-delay);
+        if(dt < 0 || dt > 1){ d.visible = false; return; }
+        d.visible = true;
+        const e = easeInOut(dt);
+        const target = holeSpots[i];
+        d.position.set(
+          THREE.MathUtils.lerp(start.x, target.x, dt),
+          THREE.MathUtils.lerp(start.y, 0.12, e),
+          THREE.MathUtils.lerp(start.z, target.z, dt)
+        );
+        d.material.opacity = 0.85*(1-dt*0.5);
+      });
+    });
+  });
+  jets.forEach(j=>scene.remove(j.mesh));
+  dropBatches.flat().forEach(d=>scene.remove(d));
+  mounds.forEach(m=> m.material = M.moundWet);
+  setChip(5,'done');
+
+  statusLine.textContent = 'CYCLE COMPLETE';
+  statusLine2.textContent = 'Drive forward and run another cycle to plant a row';
+  cycleRunning = false;
+  runBtn.disabled = false;
+}
+runBtn.addEventListener('click', runCycle);
+
+/* ---------- continuous plant mode: drive nonstop, stations work on the fly ---------- */
+const autoBtn = document.getElementById('autoBtn');
+let contMode = false;
+let contDistanceAccum = 0;
+let lastFrameMs = performance.now();
+const CONT_SPEED = 1.1;      // units/sec the robot drives forward in continuous mode
+const PLANT_SPACING = 2.6;   // world distance between consecutive plant pulses along the row
+
+// local z position of each station along the body — this is the real front-to-back order
+// (cutter leads, then drills, then the seed outlets, then the cover flap, then the sprinklers)
+const STATION_Z = {
+  cutter: -D/2 - 1.0,
+  drill:  -D/2 - 0.42,
+  seed:   seedCenter.z,
+  cover:  D/2 + 0.15,
+  water:  D/2 + 0.85
+};
+function localPoint(x,z){ return robot.localToWorld(new THREE.Vector3(x,0,z)); }
+function delay(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function msBetween(zA,zB){ return Math.max(0,(zB-zA)/CONT_SPEED)*1000; }
+
+// mow any grass currently under the cutter, in real time, as the robot drives past it
+function continuousCutGrass(){
+  if(!cutterChk.checked) return;
+  robot.updateMatrixWorld();
+  const inv = new THREE.Matrix4().copy(robot.matrixWorld).invert();
+  const toRemove = [];
+  grassGroup.children.forEach(b=>{
+    const local = b.position.clone().applyMatrix4(inv);
+    if(local.z > STATION_Z.cutter-0.3 && local.z < STATION_Z.cutter+0.3 && Math.abs(local.x) < W/2+0.5) toRemove.push(b);
+  });
+  toRemove.forEach(b=>grassGroup.remove(b));
+}
+
+// one full plant pulse: hole -> seed -> cover -> water, timed to when each station
+// physically reaches that same ground spot as the robot keeps driving
+async function spawnPlantPulse(){
+  robot.updateMatrixWorld();
+  const holeOffset = 0.55;
+  const hs = [
+    localPoint(-holeOffset, STATION_Z.drill),
+    localPoint(holeOffset, STATION_Z.drill)
+  ];
+
+  // drills visibly plunge down into the ground before the hole appears
+  const baseY = drills.map(d=>d.position.y);
+  await tween(280, t=>{
+    const e = easeInOut(t);
+    drills.forEach((d,i)=>{ d.position.y = baseY[i]-(baseY[i]-AUGER_HALF_H)*e; });
+  });
+  // open, uncovered hole — dark pit plus a raised dirt rim from the freshly dug soil
+  const holes = hs.map(p=>{
+    const g = new THREE.Group();
+    const pit = new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.22,0.14,16), M.hole);
+    pit.position.y = 0.02;
+    g.add(pit);
+    const rim = new THREE.Mesh(new THREE.TorusGeometry(0.32,0.07,8,16), M.mound);
+    rim.rotation.x = Math.PI/2;
+    rim.position.y = 0.05;
+    g.add(rim);
+    g.position.set(p.x,0,p.z);
+    fieldItems.add(g);
+    return g;
+  });
+  await tween(280, t=>{
+    const e = easeInOut(t);
+    drills.forEach((d,i)=>{ d.position.y = AUGER_HALF_H + (baseY[i]-AUGER_HALF_H)*e; });
+  });
+
+  await delay(msBetween(STATION_Z.drill, STATION_Z.seed));
+  const seeds = hs.flatMap(p=>[0,1].map(j=>{
+    const s = new THREE.Mesh(new THREE.SphereGeometry(0.1,8,8), M.seed);
+    s.position.set(p.x, 0.9, p.z + (j?0.15:-0.15));
+    scene.add(s);
+    return {mesh:s, target:{x:p.x, z:p.z+(j?0.15:-0.15)}};
+  }));
+  await tween(280, t=>{
+    const e = easeInOut(t);
+    seeds.forEach(sd=>{ sd.mesh.position.y = THREE.MathUtils.lerp(0.9,0.12,e); });
+  });
+  seeds.forEach(sd=>scene.remove(sd.mesh));
+
+  await delay(msBetween(STATION_Z.seed, STATION_Z.cover));
+  // coverer drops straight down, dragging dirt smoothly over the open hole as it descends
+  const mounds = hs.map((p,i)=>{
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(0.38,0.42,0.15,16), M.mound);
+    m.position.set(p.x,0.03,p.z);
+    m.scale.set(0.01,0.01,0.01);
+    fieldItems.add(m);
+    return m;
+  });
+  await tween(320, t=>{
+    // panel drops through the first ~55% of the motion, reaching the ground right over the hole
+    const dropE = easeInOut(Math.min(1, t/0.55));
+    coverPanel.position.y = COVER_REST_Y - (COVER_REST_Y-COVER_DOWN_Y)*dropE;
+    // only once it's down and aligned with the hole does it drag the dirt over
+    const coverE = easeInOut(Math.max(0, (t-0.5)/0.5));
+    holes.forEach(h=> h.scale.setScalar(Math.max(0.01, 1-coverE)));
+    mounds.forEach(m=> m.scale.setScalar(Math.min(1, coverE)));
+  });
+  holes.forEach(h=> fieldItems.remove(h));
+  await tween(140, t=>{ coverPanel.position.y = COVER_DOWN_Y + (COVER_REST_Y-COVER_DOWN_Y)*easeInOut(t); });
+
+  await delay(msBetween(STATION_Z.cover, STATION_Z.water));
+  mounds.forEach(m=> m.material = M.moundWet);
+}
+
+// continuous ambient effects while driving — sprinklers mist and drills spin the whole time,
+// like a real machine's moving parts, independent of the discrete plant pulses above
+let mistTimer = 0;
+function continuousMist(dt){
+  mistTimer += dt;
+  if(mistTimer < 0.22) return;
+  mistTimer = 0;
+  sprinklers.forEach(n=>{
+    const p = n.getWorldPosition(new THREE.Vector3());
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.045,6,6), M.water.clone());
+    drop.position.copy(p);
+    scene.add(drop);
+    tween(420, t=>{
+      drop.position.y = THREE.MathUtils.lerp(p.y, 0.1, easeInOut(t));
+      drop.material.opacity = 0.8*(1-t);
+    }).then(()=>scene.remove(drop));
+  });
+}
+
+function startContinuousMode(){
+  contMode = true;
+  contDistanceAccum = 0;
+  lastFrameMs = performance.now();
+  autoBtn.textContent = '⏹ STOP CONTINUOUS MODE';
+  autoBtn.classList.add('running');
+  runBtn.disabled = true;
+  move.fwd=move.back=move.left=move.right=false; speed=0;
+  statusLine.textContent = 'CONTINUOUS PLANTING';
+  statusLine2.textContent = 'Driving nonstop — cut, drill, seed, cover and water happen as it moves';
+}
+function stopContinuousMode(){
+  contMode = false;
+  autoBtn.textContent = '🚜 CONTINUOUS PLANT MODE';
+  autoBtn.classList.remove('running');
+  runBtn.disabled = false;
+  statusLine.textContent = 'STANDBY — ready to drive';
+  statusLine2.textContent = 'Drive manually, or start Continuous Plant Mode again';
+}
+autoBtn.addEventListener('click', ()=>{
+  if(contMode) stopContinuousMode(); else startContinuousMode();
+});
+
+document.getElementById('resetBtn').addEventListener('click', ()=>{
+  contMode = false;
+  autoBtn.textContent = '🚜 CONTINUOUS PLANT MODE';
+  autoBtn.classList.remove('running');
+  coverPanel.position.y = COVER_REST_Y;
+  runBtn.disabled = false;
+  while(fieldItems.children.length) fieldItems.remove(fieldItems.children[0]);
+  robot.position.set(0,0,0); robot.rotation.y=0;
+  statusLine.textContent='STANDBY — ready to drive';
+  statusLine2.textContent='Position the robot, then tap RUN CYCLE';
+  chips.forEach(c=>c.classList.remove('active','done'));
+  if(grassChk.checked) spawnGrassPatch(); else clearGrassPatch();
+  obstacleChk.checked = false;
+  clearObstacle();
+});
+
+document.getElementById('infoBtn').addEventListener('click', ()=>document.getElementById('legend').classList.add('open'));
+document.getElementById('closeLegend').addEventListener('click', ()=>document.getElementById('legend').classList.remove('open'));
+
+/* ---------- render loop ---------- */
+function animate(){
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now-lastFrameMs)/1000);
+  lastFrameMs = now;
+
+  if(contMode){
+    if(obstacleDetected()){
+      stopContinuousMode();
+      statusLine.textContent = '⚠ OBSTACLE DETECTED — STOPPED';
+      statusLine2.textContent = 'Clear the obstacle or reposition, then start again';
+    } else {
+      robot.position.x -= Math.sin(robot.rotation.y)*CONT_SPEED*dt;
+      robot.position.z -= Math.cos(robot.rotation.y)*CONT_SPEED*dt;
+      wheels.forEach(w=>{ w.children[0].rotation.x += CONT_SPEED*dt*1.4; w.children[1].rotation.x += CONT_SPEED*dt*1.4; });
+      drills.forEach(d=> d.rotation.y += CONT_SPEED*dt*10);
+      continuousCutGrass();
+      continuousMist(dt);
+      contDistanceAccum += CONT_SPEED*dt;
+      if(contDistanceAccum >= PLANT_SPACING){
+        contDistanceAccum -= PLANT_SPACING;
+        spawnPlantPulse();
+      }
+    }
+  } else {
+    updateMovement();
+  }
+  updateCamera();
+  blob.position.x = robot.position.x;
+  blob.position.z = robot.position.z;
+  blob.rotation.z = robot.rotation.y;
+  renderer.render(scene, camera);
+}
+resize();
+animate();
+</script>
+</body>
+</html>
